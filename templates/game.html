@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲 - 多人猜單字遊戲</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div style="position: fixed; top: 20px; left: 20px;">
+        <button id="home-btn" class="home-button">🏠 主頁</button>
+    </div>
+
+    <div class="container">
+        <h1>遊戲 - 多人猜單字遊戲</h1>
+
+        <div class="card" id="room-info">
+            <p>房間代碼：<span class="highlight">{{ room_code }}</span></p>
+            <p>玩家列表：</p>
+            <ul>
+                {% for player in players %}
+                    <li>{{ player.name }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="card" id="word-info">
+            <p>單字長度：<span class="highlight">{{ word_length }}</span> 個字母</p>
+            {% if is_host %}
+            <p class="host-message">答案是：<span class="highlight">{{ word }}</span></p>
+            {% else %}
+            <div class="guess-section">
+                <input type="text" id="guess-word" class="guess-input" placeholder="輸入你的猜測">
+                <button id="submit-guess-btn" class="guess-button">提交猜測</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card" id="feedback"></div>
+        <div class="card" id="attempts-info">猜測次數：0</div>
+
+        <div class="card winner-alert" id="winner-alert" style="display: none;">
+            <h2 id="winner-message"></h2>
+            <div id="answer-section" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <p style="margin: 5px 0;">🔤 正確答案：<span id="correct-word" style="color: #218838; font-weight: 600;"></span></p>
+                <p style="margin: 5px 0;">🇨🇳 中文翻譯：<span id="word-translation" style="color: #007bff; font-style: italic;"></span></p>
+            </div>
+        </div>
+
+        <div class="card" id="guess-history">
+            <h3>猜測紀錄：</h3>
+            <ul id="guess-history-list">
+                {% if 'guesses' in room_info %}
+                    {% for guess in room_info['guesses'] %}
+                        <li>
+                            <span class="guess-username">{{ guess.username if guess.username else '未知玩家' }}</span> 猜測：
+                            <span class="guess-word">{{ guess.guess }}</span> - 
+                            正確字母：<span class="guess-correct">{{ guess.correct_count }}</span>，
+                            位置錯誤：<span class="guess-wrong">{{ guess.wrong_position_count }}</span> - 
+                            反饋：<span class="guess-feedback">{{ guess.feedback }}</span>
+                        </li>
+                    {% endfor %}
+                {% endif %}
+            </ul>
+        </div>
+
+        <div class="card" id="player-attempts-section">
+            <h3>玩家猜測紀錄：</h3>
+            <ul id="player-attempts">
+                {% for player in players %}
+                    <li id="player-{{ player.name }}">{{ player.name }}: {{ player.attempts }} 次猜測</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% if room_info.winner %}
+        <div id="winner-data" style="display: none;">
+            {{ room_info.winner|tojson }}
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        const roomCode = "{{ room_code }}";
+        const username = "{{ username }}";
+        let attempts = 0;
+
+        document.getElementById("home-btn").addEventListener("click", function(event) {
+            event.preventDefault();
+            fetch("/leave_room", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `room_code=${roomCode}&username=${username}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = "/";
+                } else {
+                    alert("離開房間失敗！");
+                }
+            })
+            .catch(error => console.error("錯誤:", error));
+        });
+
+        function updateAllSections() {
+            fetch(`/game?room_code=${roomCode}&username=${username}`)
+            .then(response => response.text())
+            .then(data => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data, 'text/html');
+
+                // 更新玩家列表
+                document.getElementById("room-info").innerHTML = 
+                    doc.getElementById("room-info").innerHTML;
+
+                // 更新猜測紀錄
+                document.getElementById("guess-history-list").innerHTML =
+                    doc.getElementById("guess-history-list").innerHTML;
+
+                // 更新玩家猜測次數
+                document.getElementById("player-attempts").innerHTML =
+                    doc.getElementById("player-attempts").innerHTML;
+
+                // 檢查獲勝者
+                const winnerData = doc.getElementById('winner-data');
+                if (winnerData) {
+                    const winner = JSON.parse(winnerData.textContent);
+                    showWinner(winner);
+                }
+            });
+        }
+
+        function showWinner(winner) {
+            const winnerAlert = document.getElementById('winner-alert');
+            const winnerMsg = document.getElementById('winner-message');
+            const correctWord = document.getElementById('correct-word');
+            const translation = document.getElementById('word-translation');
+
+            winnerMsg.textContent = `${winner.username} 已獲勝，總共用了 ${winner.attempts} 步`;
+            correctWord.textContent = winner.word;
+            translation.textContent = winner.translation;
+            
+            winnerAlert.style.display = 'block';
+            
+            if (document.getElementById('guess-word')) {
+                document.getElementById('guess-word').disabled = true;
+                document.getElementById('submit-guess-btn').disabled = true;
+            }
+            
+            clearInterval(updateInterval);
+        }
+
+        // 每2秒更新所有狀態
+        let updateInterval = setInterval(updateAllSections, 2000);
+
+        {% if not is_host %}
+        document.getElementById("submit-guess-btn").addEventListener("click", function() {
+            const guessWord = document.getElementById("guess-word").value;
+            if (!guessWord) {
+                alert("請輸入猜測單字！");
+                return;
+            }
+
+            attempts++;
+            document.getElementById("attempts-info").textContent = `猜測次數：${attempts}`;
+
+            fetch("/guess_word", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `room_code=${roomCode}&word=${guessWord}&username=${username}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById("feedback").textContent = "恭喜你猜對了！";
+                    if (data.winner) {
+                        showWinner(data.winner);
+                    }
+                } else {
+                    document.getElementById("feedback").textContent = `反饋：${data.feedback}`;
+                }
+                updateAllSections(); // 立即更新狀態
+            })
+            .catch(error => console.error("錯誤:", error));
+        });
+        {% endif %}
+    </script>
+</body>
+</html>

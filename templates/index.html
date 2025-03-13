@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多人猜單字遊戲</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>多人猜單字遊戲</h1>
+        
+        <div class="card create-section">
+            <h2>🛎️ 創建新房間</h2>
+            <div class="input-group">
+                <input type="text" id="create-username" placeholder="你的暱稱" class="large-input">
+            </div>
+            <div class="input-group">
+                <input type="text" id="room-code" placeholder="自訂房號 (選填)" class="large-input">
+            </div>
+            <div class="input-group">
+                <input type="text" id="word" placeholder="設定神秘單字" class="large-input">
+            </div>
+            <button id="create-room-btn" class="action-button">🚀 立即創建</button>
+        </div>
+
+        <div class="card join-section">
+            <h2>🔍 加入房間</h2>
+            <div class="input-group">
+                <input type="text" id="join-username" placeholder="你的暱稱" class="large-input">
+            </div>
+            <div class="input-group">
+                <input type="text" id="room-code-join" placeholder="輸入房號" class="large-input">
+            </div>
+            <button id="join-room-btn" class="action-button">🎯 立即加入</button>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
+
